@@ -8,16 +8,21 @@ import type { Config } from '../src/types.js'
 const CHAT_ID = -1001234567890
 
 class FakeApi {
-  readonly messages: Array<{ chatId: number; text: string }> = []
+  readonly messages: Array<{ chatId: number; text: string; markup?: unknown }> = []
   private nextId = 1
 
-  async sendMessage(chatId: number, text: string): Promise<{ message_id: number }> {
-    this.messages.push({ chatId, text })
+  async sendMessage(chatId: number, text: string, options?: { reply_markup?: unknown }): Promise<{ message_id: number }> {
+    this.messages.push({ chatId, text, markup: options?.reply_markup })
     return { message_id: this.nextId++ }
   }
 
-  async editMessageText(chatId: number, _messageId: number, text: string): Promise<true> {
-    this.messages.push({ chatId, text })
+  async editMessageText(
+    chatId: number,
+    _messageId: number,
+    text: string,
+    options?: { reply_markup?: unknown },
+  ): Promise<true> {
+    this.messages.push({ chatId, text, markup: options?.reply_markup })
     return true
   }
 }
@@ -31,10 +36,10 @@ const settings: Config = {
   actionTimeoutMs: 300_000,
 }
 
-function makeEnv(count: number) {
+function makeEnv(count: number, botUsername = '') {
   const api = new FakeApi()
   const store = new Store(':memory:', settings.startingChips)
-  const game = new PokerGame({ api } as unknown as Bot, store, settings)
+  const game = new PokerGame({ api } as unknown as Bot, store, settings, botUsername)
   for (let id = 1; id <= count; id++) {
     const user = { id, username: `p${id}`, first_name: `P${id}` }
     store.registerPlayer(CHAT_ID, user)
@@ -106,6 +111,15 @@ test('по таймеру не ответивший игрок получает 
   assert.equal(after.players.find((player) => player.userId === pendingId)!.folded, true)
   assert.notEqual(after.stage, 'preflop')
   assert.equal(totalChips(store), 4000)
+})
+
+test('игрокам без ЛС показывается кнопка с deep link', async () => {
+  const { api, store, game } = makeEnv(3, 'pokerbot')
+  store.markDmNotReady(3)
+  await game.startRound(CHAT_ID, 'Тест')
+  const table = api.messages.filter((message) => message.chatId === CHAT_ID).at(-1)!
+  assert.match(table.text, /Не участвуют/)
+  assert.match(JSON.stringify(table.markup), /t\.me\/pokerbot\?start=poker/)
 })
 
 test('новый раунд запускается только после следующей команды', async () => {

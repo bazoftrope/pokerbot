@@ -1,21 +1,30 @@
-import { Bot } from 'grammy'
+import { Bot, InlineKeyboard } from 'grammy'
 import { config } from './config.js'
 import { PokerGame } from './game.js'
 import { Store } from './store.js'
 
 const store = new Store(config.dbPath, config.startingChips)
 const bot = new Bot(config.token)
-const game = new PokerGame(bot, store, config)
+const me = await bot.api.getMe()
+const botUsername = me.username ?? ''
+const dmLink = `https://t.me/${botUsername}?start=poker`
+const game = new PokerGame(bot, store, config, botUsername)
 
 bot.command('start', async (ctx) => {
-  if (ctx.chat?.type !== 'private' || !ctx.from) {
+  const user = ctx.from
+  if (ctx.chat?.type !== 'private' || !user) {
     await ctx.reply('Напиши мне личные сообщения и отправь /start — тогда я смогу раздавать тебе карты.')
     return
   }
-  store.markDmReady(ctx.from)
+  store.markDmReady(user)
+  const active = store.getActiveRounds().find((round) => round.players.some((player) => player.userId === user.id))
+  const late = active
+    ? `\nСейчас идёт раунд #${active.roundId} — вы в нём не участвуете. В следующем раунде карты придут автоматически.`
+    : ''
   await ctx.reply(
-    'Готово! Теперь в группе друзей можно играть в покер.\n'
-    + 'Добавь бота в чат, напиши /start каждому игроку, а затем запусти раунд командой /poker.',
+    ctx.match === 'poker'
+      ? `Готово! Теперь я буду автоматически присылать вам карты.${late}`
+      : `Готово! Теперь в группе друзей можно играть в покер.${late}`,
   )
 })
 
@@ -45,7 +54,11 @@ bot.command('players', async (ctx) => {
     const status = player.dmReady ? 'ЛС готово' : 'нужен /start в ЛС'
     return `• ${name} — ${player.chips} фишек (${status})`
   })
-  await ctx.reply(`Игроки чата:\n${lines.join('\n')}`)
+  const markup = new InlineKeyboard()
+  if (botUsername && players.some((player) => !player.dmReady)) {
+    markup.url('Открыть ЛС бота', dmLink)
+  }
+  await ctx.reply(`Игроки чата:\n${lines.join('\n')}`, { reply_markup: markup })
 })
 
 bot.on('message', async (ctx) => {
@@ -73,7 +86,7 @@ bot.catch((error) => {
 })
 
 await game.restoreTimers()
-await bot.start({ onStart: (me) => console.log(`@${me.username} запущен`) })
+await bot.start({ onStart: () => console.log(`@${botUsername} запущен`) })
 
 function shutdown(): void {
   bot.stop()

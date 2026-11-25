@@ -55,6 +55,7 @@ export class PokerGame {
     private readonly bot: Bot,
     private readonly store: Store,
     private readonly settings: Config,
+    private readonly botUsername: string = '',
   ) {}
 
   private withLock<T>(chatId: number, task: () => Promise<T>): Promise<T> {
@@ -147,7 +148,7 @@ export class PokerGame {
       const round: RoundState = {
         chatId,
         chatTitle,
-        notice: excluded.length ? `ℹ️ Не участвуют: ${excluded.join(', ')}` : null,
+        notice: excluded.length ? `ℹ️ Не участвуют: ${excluded.join(', ')}. Нажмите кнопку ниже один раз — дальше карты будут приходить автоматически.` : null,
         roundId,
         status: 'active',
         stage: 'preflop',
@@ -495,16 +496,26 @@ export class PokerGame {
 
   private async renderChat(round: RoundState): Promise<void> {
     const text = this.chatText(round)
+    const markup = new InlineKeyboard()
+    if (round.status === 'active' && round.notice && this.botUsername) {
+      markup.url('Открыть ЛС бота', `https://t.me/${this.botUsername}?start=poker`)
+    }
     if (round.chatMessageId !== null) {
       try {
-        await this.bot.api.editMessageText(round.chatId, round.chatMessageId, text, { parse_mode: 'HTML' })
+        await this.bot.api.editMessageText(round.chatId, round.chatMessageId, text, {
+          parse_mode: 'HTML',
+          reply_markup: markup,
+        })
         return
       } catch (error) {
         if (!isNotModified(error)) console.error('Cannot edit chat message, sending a new one:', error)
         else return
       }
     }
-    const message = await this.bot.api.sendMessage(round.chatId, text, { parse_mode: 'HTML' })
+    const message = await this.bot.api.sendMessage(round.chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: markup,
+    })
     round.chatMessageId = message.message_id
   }
 

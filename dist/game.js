@@ -152,6 +152,15 @@ export class PokerGame {
             await this.renderAll(round);
         });
     }
+    async refresh(chatId) {
+        await this.withLock(chatId, async () => {
+            const round = this.store.getActiveRound(chatId);
+            if (!round)
+                return;
+            this.store.saveRound(round);
+            await this.renderAll(round);
+        });
+    }
     async handleAction(chatId, userId, action) {
         await this.withLock(chatId, async () => {
             const round = this.store.getActiveRound(chatId);

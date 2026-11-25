@@ -69,6 +69,27 @@ bot.command('poker', async (ctx) => {
   await game.startRound(chat.id, chat.title || 'чате друзей')
 })
 
+bot.command('rebuy', async (ctx) => {
+  const chat = ctx.chat
+  if (!chat || chat.type === 'private' || !ctx.from) {
+    await ctx.reply('Команда /rebuy работает в групповом чате.')
+    return
+  }
+  store.registerPlayer(chat.id, ctx.from)
+  const amount = config.startingChips
+  const chips = store.getChips(chat.id, ctx.from.id) + amount
+  store.setChips(chat.id, ctx.from.id, chips)
+
+  const round = store.getActiveRound(chat.id)
+  if (round) {
+    const player = round.players.find((candidate) => candidate.userId === ctx.from!.id)
+    if (player && !player.folded) player.chips += amount
+    store.saveRound(round)
+    await game.refresh(chat.id)
+  }
+  await ctx.reply(`+${amount} фишек. Теперь у вас ${chips} фишек.`)
+})
+
 bot.command('players', async (ctx) => {
   const chat = ctx.chat
   if (!chat || chat.type === 'private') {

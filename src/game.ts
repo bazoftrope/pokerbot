@@ -177,6 +177,15 @@ export class PokerGame {
     })
   }
 
+  async refresh(chatId: number): Promise<void> {
+    await this.withLock(chatId, async () => {
+      const round = this.store.getActiveRound(chatId)
+      if (!round) return
+      this.store.saveRound(round)
+      await this.renderAll(round)
+    })
+  }
+
   async handleAction(chatId: number, userId: number, action: string): Promise<void> {
     await this.withLock(chatId, async () => {
       const round = this.store.getActiveRound(chatId)

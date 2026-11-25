@@ -23,11 +23,31 @@ const dmLink = `https://t.me/${botUsername}?start=poker`;
 const game = new PokerGame(bot, store, config, botUsername);
 bot.command('start', async (ctx) => {
     const user = ctx.from;
-    if (ctx.chat?.type !== 'private' || !user) {
-        await ctx.reply('Напиши мне личные сообщения и отправь /start — тогда я смогу раздавать тебе карты.');
+    if (!user)
+        return;
+    if (ctx.chat?.type !== 'private') {
+        if (ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup') {
+            store.registerPlayer(ctx.chat.id, user);
+            const markup = new InlineKeyboard().url('Открыть ЛС бота', dmLink);
+            await ctx.reply('Вы добавлены в игру. Откройте ЛС по кнопке, чтобы получать карты.', { reply_markup: markup });
+        }
+        else {
+            await ctx.reply('Напиши мне личные сообщения и отправь /start — тогда я смогу раздавать тебе карты.');
+        }
         return;
     }
     store.markDmReady(user);
+    for (const chatId of store.getChatIds()) {
+        try {
+            const member = await bot.api.getChatMember(chatId, user.id);
+            if (member.status === 'member' || member.status === 'administrator' || member.status === 'creator') {
+                store.registerPlayer(chatId, user);
+            }
+        }
+        catch {
+            console.log(`Cannot check membership in chat ${chatId} for user ${user.id}`);
+        }
+    }
     const active = store.getActiveRounds().find((round) => round.players.some((player) => player.userId === user.id));
     const late = active
         ? `\nСейчас идёт раунд #${active.roundId} — вы в нём не участвуете. В следующем раунде карты придут автоматически.`

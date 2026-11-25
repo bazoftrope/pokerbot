@@ -36,6 +36,9 @@ export class Store {
         fs.writeFileSync(temporary, JSON.stringify(this.data));
         fs.renameSync(temporary, this.dbPath);
     }
+    getChatIds() {
+        return Object.keys(this.data.chats).map(Number);
+    }
     ensureChat(chatId) {
         const key = String(chatId);
         if (this.data.chats[key])

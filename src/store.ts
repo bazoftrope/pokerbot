@@ -67,6 +67,10 @@ export class Store {
     fs.renameSync(temporary, this.dbPath)
   }
 
+  getChatIds(): number[] {
+    return Object.keys(this.data.chats).map(Number)
+  }
+
   ensureChat(chatId: number): void {
     const key = String(chatId)
     if (this.data.chats[key]) return

@@ -1,8 +1,11 @@
 import http from 'node:http';
+import { createRequire } from 'node:module';
 import { Bot, InlineKeyboard } from 'grammy';
 import { config } from './config.js';
 import { PokerGame } from './game.js';
 import { Store } from './store.js';
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
 console.log('Poker bot starting, Node', process.version);
 const port = Number(process.env.PORT ?? 3000);
 const healthServer = http.createServer((request, response) => {
@@ -85,6 +88,32 @@ bot.command('rebuy', async (ctx) => {
         await game.refresh(chat.id);
     }
     await ctx.reply(`+${amount} фишек. Теперь у вас ${chips} фишек.`);
+});
+bot.command('version', async (ctx) => {
+    await ctx.reply(`Poker bot v${version} (Node ${process.version})`);
+});
+bot.command('leave', async (ctx) => {
+    const chat = ctx.chat;
+    if (!chat || chat.type === 'private' || !ctx.from) {
+        await ctx.reply('Команда /leave работает в групповом чате.');
+        return;
+    }
+    const round = store.getActiveRound(chat.id);
+    if (round?.players.some((player) => player.userId === ctx.from.id)) {
+        await ctx.reply('Сейчас идёт раунд — спасовать можно кнопкой Fold, а выйти можно после его завершения.');
+        return;
+    }
+    store.removePlayer(chat.id, ctx.from.id);
+    await ctx.reply('Вы исключены из игр в этом чате. Чтобы вернуться, напишите /poker.');
+});
+bot.command('help', async (ctx) => {
+    await ctx.reply('🎰 Как играть:\n'
+        + '1. Один раз откройте ЛС бота по кнопке в чате — иначе карты не куда прислать.\n'
+        + '2. В чате: /poker — начать раунд со всеми игроками чата.\n'
+        + '3. Две карты и кнопки Fold / Check / Call / Raise приходят в ЛС; стол обновляется в чате.\n'
+        + '4. После 3 ходов — таймер 5 минут, не ответившие пасуют автоматически.\n'
+        + '5. Новый раунд — только по следующему /poker.\n\n'
+        + 'Команды: /poker, /players, /rebuy (+1000 фишек), /leave (выйти из чата), /version, /help.');
 });
 bot.command('players', async (ctx) => {
     const chat = ctx.chat;

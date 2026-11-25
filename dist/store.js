@@ -104,6 +104,13 @@ export class Store {
             return left - right || a.userId - b.userId;
         });
     }
+    removePlayer(chatId, userId) {
+        const key = this.playerKey(chatId, userId);
+        if (!(key in this.data.players))
+            return;
+        delete this.data.players[key];
+        this.persist();
+    }
     getChips(chatId, userId) {
         return this.data.players[this.playerKey(chatId, userId)]?.chips ?? 0;
     }

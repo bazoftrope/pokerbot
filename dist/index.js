@@ -3,6 +3,7 @@ import { Bot, InlineKeyboard } from 'grammy';
 import { config } from './config.js';
 import { PokerGame } from './game.js';
 import { Store } from './store.js';
+console.log('Poker bot starting, Node', process.version);
 const port = Number(process.env.PORT ?? 3000);
 const healthServer = http.createServer((request, response) => {
     response.writeHead(request.url === '/health' || request.url === '/' ? 200 : 404, { 'Content-Type': 'text/plain' });
@@ -16,7 +17,7 @@ try {
     botUsername = (await bot.api.getMe()).username ?? '';
 }
 catch (error) {
-    console.error('Cannot get bot info:', error);
+    console.log('Cannot get bot info:', error);
 }
 const dmLink = `https://t.me/${botUsername}?start=poker`;
 const game = new PokerGame(bot, store, config, botUsername);
@@ -88,14 +89,14 @@ bot.on('callback_query:data', async (ctx) => {
     await game.handleAction(chatId, ctx.from.id, parts[2]);
 });
 bot.catch((error) => {
-    console.error('Bot error:', error);
+    console.log('Bot error:', error);
 });
 try {
     await game.restoreTimers();
     await bot.start({ onStart: () => console.log(`@${botUsername} запущен`) });
 }
 catch (error) {
-    console.error('Fatal startup error:', error);
+    console.log('Fatal startup error:', error);
     process.exitCode = 1;
 }
 function shutdown() {
